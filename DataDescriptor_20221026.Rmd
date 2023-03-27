@@ -1,0 +1,316 @@
+---
+title: "DataDescriptor_20221026"
+author: "Molly Simonis"
+date: "2022-10-26"
+output: html_document
+---
+This file is to create figures for the big brown bat capture dataset. These figures will be for publication as a Data Descriptor in Scientific Data.
+
+#Variable descriptions
+state: US state of capture as a two-letter postal abbreviation (levels: GA = Georgia, IL = Illinois, IN = Indiana, KY = Kentucky, MS = Mississippi, NY = New York, NC = North Carolina, OH = Ohio, PA = Pennsylvania, TN = Tennessee, VA = Virginia)
+
+rMapState: US state of capture. Variable obtained from the housingData package in R. US state name in all lowercase letters for mapping states on a case-specific basis in R. (levels: georgia, illinois, indiana, kentucky, mississippi, new york, north carolina, ohio, pennsylvania, tennessee, virginia)
+
+rMapCounty: County of capture. Variable obtained from the housingData package in R. US county name in all lowercase letters for mapping county-level data in R and obtaining county centroid points.
+
+month: month the individual big brown bat was captured
+	
+year: year the individual big brown bat was captured	
+
+age: categorical age (levels: adult, juvenile)
+	
+sex: biological sex identified upon capture (levels: male, female)
+	
+repstat: reproductive status identified upon capture (levels: non-reproductive, pregnant, lactating, post-lactating, NA)
+	
+mass: weight of individual big brown bat at capture in grams
+	
+Pd_intro: Year that Pd was confirmed of suspected within the state of capture. Data for this variable was obtained at whitenosesyndrome.org
+	
+years_Pd: year - Pd_intro
+	
+disease_time_step: categorical variable for pathogen/disease status grouped by multiple years_Pd as seen in Langwig et al. 2015, Cheng et al. 2021 and Simonis et al. 2022 (levels: pre-invasion = <0 years_Pd, invasion = 0-1 years_Pd, epidemic = 2-4 years_Pd, established = 5+ years_Pd)	
+
+county_cent_lon: County of capture longitudinal centroid. Variable was obtained from the housingData package in R. Longitude of county centroid.
+	
+county_cent_lat: County of capture latitudinal centroid. Variable was obtained from the housingData package in R. Latitude of county centroid.	
+
+site_mask: masked site name
+	
+fips: Variable was obtained from the housingData package in R and was used for mapping county-level data in R. Federal Information Processing System (FIPS) code which uniquely identifies individual counties
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+library(patchwork)
+library(paletteer)
+```
+
+Read in full dataset
+```{r}
+EPFU_df<- read.csv('EPFU_clean_data_v2.csv', header = T, sep = ",")
+
+head(EPFU_df)
+str(EPFU_df)
+
+
+#make sure categorical variables are factors
+EPFU_df$rMapState<- factor(EPFU_df$rMapState)
+
+EPFU_df$rMapCounty<- factor(EPFU_df$rMapCounty)
+
+EPFU_df$site_mask<- factor(EPFU_df$site_mask)
+
+EPFU_df$year<- factor(EPFU_df$year)
+
+EPFU_df$years_Pd<- factor(EPFU_df$years_Pd, levels = c('-21', '-20', '-19', '-17', '-15', '-14', '-13', '-12', '-11', '-10', '-9', '-8', '-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'))
+
+EPFU_df$month<- factor(EPFU_df$month, levels = c('3', '4', '5', '6', '7', '8', '9', '10'))
+
+EPFU_df$age<- factor(EPFU_df$age, levels= c("adult", "juvenile"))
+
+EPFU_df$sex<- factor(EPFU_df$sex)
+
+EPFU_df$repstat<- factor(EPFU_df$repstat, levels= c("non-reproductive", "pregnant", "lactating", "post-lactating", "testes-descended"))
+
+EPFU_df$disease_time_step<- factor(EPFU_df$disease_time_step, levels = c('pre-invasion', 'invasion', 'epidemic', 'established'))
+
+```
+
+Transform data into a count across the entire dataset
+```{r}
+EPFU_count<- EPFU_df %>% 
+  select(names(EPFU_df)) %>% 
+  count(sex, age, rMapCounty, rMapState, site_mask, year, repstat, month, disease_time_step, years_Pd) %>% 
+  group_by(sex, age)
+  
+```
+
+Figure 2
+```{r}
+#Total number of captures by state
+ggplot(EPFU_count, aes(rMapState, n, color = rMapState, fill = rMapState))+
+  geom_bar(stat="identity")+
+  scale_color_paletteer_d("ggthemes::Classic_Green_Orange_12") +
+  scale_fill_paletteer_d("ggthemes::Classic_Green_Orange_12") +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.position = "none")+
+  labs(x="", y= "Total Number of Bat Captures")
+
+```
+
+Figure 3
+```{r}
+#add a dummy 0 row for counts in years where there is no captures in any age & sex
+#this will be for 1993 and 1996
+
+row1993male_adult<- c('male', 'adult', '', '', '', '1993', '', '', '', '', 0)
+row1993male_juvi<- c('male', 'juvenile', '', '', '', '1993', '', '', '', '', 0)
+row1993female_adult<- c('female', 'adult', '', '', '', '1993', '', '', '', '', 0)
+row1993female_juvi<- c('female', 'juvenile', '', '', '', '1993', '', '', '', '', 0)
+
+row1996male_adult<- c('male', 'adult', '', '', '', '1996', '', '', '', '', 0)
+row1996male_juvi<- c('male', 'juvenile', '', '', '', '1996', '', '', '', '', 0)
+row1996female_adult<- c('female', 'adult', '', '', '', '1996', '', '', '', '', 0)
+row1996female_juvi<- c('female', 'juvenile', '', '', '', '1996', '', '', '', '', 0)
+
+#add dummy rows to dataset
+dummies<- as.data.frame(rbind(row1993male_adult, row1993male_juvi, row1993female_adult, row1993female_juvi, row1996male_adult, row1996male_juvi, row1996female_adult, row1996female_juvi))
+
+names(dummies)<- names(EPFU_count)
+
+dummies$sex<- factor(dummies$sex)
+dummies$age<- factor(dummies$age)
+dummies$year<- factor(dummies$year)
+dummies$n<- as.integer(dummies$n)
+
+EPFU_count2<- as.data.frame(rbind(EPFU_count, dummies))
+EPFU_count2$year<- factor(EPFU_count2$year, levels = c("1990", "1991", "1992", "1993", "1994", "1995", "1996", "1997", "1998", "1999", "2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020"))
+
+
+#Total captures per year
+ggplot(EPFU_count2, aes(year, n, color = sex, fill = sex))+
+  facet_grid(age~sex) + 
+  geom_bar(position = 'dodge', stat="identity")+
+  scale_color_paletteer_d("ggthemes::Classic_Green_Orange_12", drop = F) +
+  scale_fill_paletteer_d("ggthemes::Classic_Green_Orange_12", drop = F) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.title = element_blank())+
+  theme(legend.position = "none")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+  labs(x="Year", y= "Total Number of Bat Captures")
+```
+
+Figure 4
+```{r}
+#number of adults by reproductive status
+ggplot(EPFU_count[EPFU_count$age == 'adult',], aes(sex, n, color = repstat, fill = repstat))+
+  geom_bar(stat="identity")+
+  scale_color_paletteer_d("ggthemes::Classic_Green_Orange_12", direction = -1) +
+  scale_fill_paletteer_d("ggthemes::Classic_Green_Orange_12", direction = -1) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.title = element_blank())+
+  labs(x="", y= "Total Number of Adult Bat Captures")
+```
+
+Figure 5
+```{r}
+#Mass distribution by age
+mass<- ggplot(EPFU_df, aes(x = mass, color = age, fill = age))+
+  geom_density(alpha = 0.85, lwd = 1, bw = 0.5)+
+  scale_color_paletteer_d("ggthemes::Classic_Green_Orange_12") +
+  scale_fill_paletteer_d("ggthemes::Classic_Green_Orange_12") +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.position = c(1, 1), legend.title = element_blank(), legend.justification = c("right", "top"))+
+  labs(x="Mass (g)", y= "Kernel Density")
+
+
+#Forearm length distribution by age
+forearm<- ggplot(EPFU_df, aes(x = fa, color = age, fill = age))+
+  geom_density(alpha = 0.85, lwd = 1, bw = 0.5)+
+  scale_color_manual(values = c('#82853B', '#CCC94D')) +
+  scale_fill_manual(values = c('#82853B', '#CCC94D')) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.position = c(1, 1), legend.title = element_blank(), legend.justification = c("right", "top"))+
+  labs(x="Forearm Length (mm)", y= "")
+
+
+mass + forearm 
+```
+
+Figure 6
+```{r}
+#Total number of captures by Pd invasion status and age
+inv_stat1<- ggplot(EPFU_count, aes(age, n, color = disease_time_step, fill = disease_time_step))+
+  geom_bar(stat="identity")+
+  scale_color_manual(values = c('#3CB7CC', '#FF7F0F', '#B85A0D', '#39737C')) +
+  scale_fill_manual(values = c('#3CB7CC', '#FF7F0F', '#B85A0D', '#39737C')) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.title = element_blank(), legend.position = 'none')+
+  labs(x="", y= "Total Number of Bat Captures")
+
+#total captures per site by invasion status and age
+#First create a vector of number of capture / number of sites for each time-step and age
+cap_per_site<- c(sum(EPFU_count$n[EPFU_count$disease_time_step == 'pre-invasion' & EPFU_count$age == 'adult'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'pre-invasion' & EPFU_count$age == 'adult'])),
+  
+           sum(EPFU_count$n[EPFU_count$disease_time_step == 'invasion' & EPFU_count$age == 'adult'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'invasion' & EPFU_count$age == 'adult'])), 
+  
+          sum(EPFU_count$n[EPFU_count$disease_time_step == 'epidemic' & EPFU_count$age == 'adult'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'epidemic' & EPFU_count$age == 'adult'])),
+  
+          sum(EPFU_count$n[EPFU_count$disease_time_step == 'established' & EPFU_count$age == 'adult'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'established' & EPFU_count$age == 'adult'])),
+  
+          sum(EPFU_count$n[EPFU_count$disease_time_step == 'pre-invasion' & EPFU_count$age == 'juvenile'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'pre-invasion' & EPFU_count$age == 'juvenile'])),
+  
+          sum(EPFU_count$n[EPFU_count$disease_time_step == 'invasion' & EPFU_count$age == 'juvenile'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'invasion' & EPFU_count$age == 'juvenile'])), 
+  
+          sum(EPFU_count$n[EPFU_count$disease_time_step == 'epidemic' & EPFU_count$age == 'juvenile'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'epidemic' & EPFU_count$age == 'juvenile'])),
+  
+          sum(EPFU_count$n[EPFU_count$disease_time_step == 'established' & EPFU_count$age == 'juvenile'])/length(unique(EPFU_count$site_mask[EPFU_count$disease_time_step == 'established' & EPFU_count$age == 'juvenile'])))
+
+#then create a vector for age
+age2<- c(rep('adult', 4), rep('juvenile', 4))
+
+
+#then create a vector for time-steps
+disease_time_step2<- rep(c('pre-invasion', 'invasion', 'epidemic', 'established'), 2)
+
+#now combine into dataframe
+disease_age_cps<- data.frame(cap_per_site, age2, disease_time_step2)
+
+#fix levels in the new dataframe
+disease_age_cps$age2<- factor(disease_age_cps$age2, levels = c('adult', 'juvenile'))
+
+disease_age_cps$disease_time_step2<- factor(disease_age_cps$disease_time_step2, levels = c('pre-invasion', 'invasion', 'epidemic', 'established'))
+
+#captures per site by disease time-steps and age
+inv_stat2<- ggplot(disease_age_cps, aes(age2, cap_per_site, color = disease_time_step2, fill = disease_time_step2))+
+  geom_bar(stat="identity")+
+  scale_color_manual(values = c('#3CB7CC', '#FF7F0F', '#B85A0D', '#39737C')) +
+  scale_fill_manual(values = c('#3CB7CC', '#FF7F0F', '#B85A0D', '#39737C')) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.title = element_blank(), legend.position = 'none')+
+  labs(x="", y= "Total Number of Bat Captures Per Number of Sites")
+
+#Total number of captures by Pd invasion years
+inv_stat3<- ggplot(EPFU_count, aes(years_Pd, n, color = disease_time_step, fill = disease_time_step))+
+  geom_bar(stat="identity")+
+  scale_color_manual(values = c('#3CB7CC', '#FF7F0F', '#B85A0D', '#39737C')) +
+  scale_fill_manual(values = c('#3CB7CC', '#FF7F0F', '#B85A0D', '#39737C')) +
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        legend.background = element_rect(fill = "transparent", colour = NA), 
+        legend.box.background = element_rect(fill = "transparent", colour = NA), 
+        legend.key = element_rect(fill = "transparent", colour = NA),
+        axis.line = element_line(colour = "black"), axis.text = element_text(colour="black"))+
+  theme(legend.title = element_blank())+
+  ylim(0, 4500)+
+  labs(x="Number of Years with Confirmed or Suspected Pd", y= "Total Number of Bat Captures")
+
+
+AB<- inv_stat1 / inv_stat2 + plot_layout(widths = c(0.5, 0.5))
+
+C<- inv_stat3 +  plot_layout(widths = 3)
+
+AB | C
+```
